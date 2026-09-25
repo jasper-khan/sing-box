@@ -106,6 +106,7 @@ func NewNetworkManager(ctx context.Context, logger logger.ContextLogger, options
 			NetworkType:         common.Map(options.DefaultNetworkType, option.InterfaceType.Build),
 			FallbackNetworkType: common.Map(options.DefaultFallbackNetworkType, option.InterfaceType.Build),
 			FallbackDelay:       time.Duration(options.DefaultFallbackDelay),
+			ConcurrentDial:      options.DefaultConcurrentDial,
 		},
 		pauseManager:      service.FromContext[pause.Manager](ctx),
 		platformInterface: service.FromContext[adapter.PlatformInterface](ctx),

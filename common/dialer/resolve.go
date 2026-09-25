@@ -3,6 +3,7 @@ package dialer
 import (
 	"context"
 	"net"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -104,6 +105,9 @@ func (d *resolveDialer) DialContext(ctx context.Context, network string, destina
 	if err != nil {
 		return nil, err
 	}
+	if concurrentDialEnabled(d.dialer) {
+		return DialConcurrent(ctx, d.dialer, network, destination, addresses)
+	}
 	if d.parallel {
 		return N.DialParallel(ctx, d.dialer, network, destination, addresses, d.queryOptions.Strategy == C.DomainStrategyPreferIPv6, d.fallbackDelay)
 	} else {
@@ -124,7 +128,15 @@ func (d *resolveDialer) ListenPacket(ctx context.Context, destination M.Socksadd
 	if err != nil {
 		return nil, err
 	}
-	conn, destinationAddress, err := N.ListenSerial(ctx, d.dialer, destination, addresses)
+	var (
+		conn               net.PacketConn
+		destinationAddress netip.Addr
+	)
+	if concurrentDialEnabled(d.dialer) {
+		conn, destinationAddress, err = ListenConcurrent(ctx, d.dialer, destination, addresses)
+	} else {
+		conn, destinationAddress, err = N.ListenSerial(ctx, d.dialer, destination, addresses)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +145,11 @@ func (d *resolveDialer) ListenPacket(ctx context.Context, destination M.Socksadd
 
 func (d *resolveDialer) QueryOptions() adapter.DNSQueryOptions {
 	return d.queryOptions
+}
+
+// OwnBox: report the concurrent dial mode of the underlying dialer.
+func (d *resolveDialer) ConcurrentDial() bool {
+	return concurrentDialEnabled(d.dialer)
 }
 
 func (d *resolveDialer) Upstream() any {

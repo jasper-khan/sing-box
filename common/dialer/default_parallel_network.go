@@ -20,6 +20,9 @@ func DialSerialNetwork(ctx context.Context, dialer N.Dialer, network string, des
 		}
 		destinationAddresses = []netip.Addr{destination.Addr}
 	}
+	if concurrentDialEnabled(dialer) {
+		return DialConcurrent(ctx, dialer, network, destination, destinationAddresses)
+	}
 	if parallelDialer, isParallel := dialer.(ParallelNetworkDialer); isParallel {
 		return parallelDialer.DialParallelNetwork(ctx, network, destination, destinationAddresses, strategy, interfaceType, fallbackInterfaceType, fallbackDelay)
 	}
@@ -52,6 +55,9 @@ func DialParallelNetwork(ctx context.Context, dialer ParallelInterfaceDialer, ne
 		destinationAddresses = []netip.Addr{destination.Addr}
 	}
 
+	if concurrentDialEnabled(dialer) {
+		return DialConcurrent(ctx, dialer, network, destination, destinationAddresses)
+	}
 	if fallbackDelay == 0 {
 		fallbackDelay = N.DefaultFallbackDelay
 	}
@@ -135,6 +141,9 @@ func ListenSerialNetworkPacket(ctx context.Context, dialer N.Dialer, destination
 			panic("invalid usage")
 		}
 		destinationAddresses = []netip.Addr{destination.Addr}
+	}
+	if concurrentDialEnabled(dialer) {
+		return ListenConcurrent(ctx, dialer, destination, destinationAddresses)
 	}
 	if parallelDialer, isParallel := dialer.(ParallelNetworkDialer); isParallel {
 		return parallelDialer.ListenSerialNetworkPacket(ctx, destination, destinationAddresses, strategy, interfaceType, fallbackInterfaceType, fallbackDelay)

@@ -52,6 +52,7 @@ type DefaultDialer struct {
 	networkType            []C.InterfaceType
 	fallbackNetworkType    []C.InterfaceType
 	networkFallbackDelay   time.Duration
+	concurrentDial         bool
 	networkLastFallback    common.TypedValue[time.Time]
 }
 
@@ -69,6 +70,7 @@ func NewDefault(ctx context.Context, options option.DialerOptions) (*DefaultDial
 		networkType            []C.InterfaceType
 		fallbackNetworkType    []C.InterfaceType
 		networkFallbackDelay   time.Duration
+		concurrentDial         bool
 		autoDetectBindFunc     control.Func
 	)
 	if networkManager != nil {
@@ -103,6 +105,7 @@ func NewDefault(ctx context.Context, options option.DialerOptions) (*DefaultDial
 
 	if networkManager != nil {
 		defaultOptions := networkManager.DefaultOptions()
+		concurrentDial = defaultOptions.ConcurrentDial
 		if defaultOptions.BindInterface != "" && !disableDefaultBind {
 			bindFunc := control.BindToInterface(networkManager.InterfaceFinder(), defaultOptions.BindInterface, -1)
 			dialer.Control = control.Append(dialer.Control, bindFunc)
@@ -254,7 +257,12 @@ func NewDefault(ctx context.Context, options option.DialerOptions) (*DefaultDial
 		networkType:            networkType,
 		fallbackNetworkType:    fallbackNetworkType,
 		networkFallbackDelay:   networkFallbackDelay,
+		concurrentDial:         concurrentDial,
 	}, nil
+}
+
+func (d *DefaultDialer) ConcurrentDial() bool {
+	return d.concurrentDial
 }
 
 func setMarkWrapper(networkManager adapter.NetworkManager, mark uint32, isDefault bool) control.Func {
