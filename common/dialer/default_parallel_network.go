@@ -21,7 +21,8 @@ func DialSerialNetwork(ctx context.Context, dialer N.Dialer, network string, des
 		destinationAddresses = []netip.Addr{destination.Addr}
 	}
 	if concurrentDialEnabled(dialer) {
-		return DialConcurrent(ctx, dialer, network, destination, destinationAddresses)
+		// The caller provided strategy-ordered addresses; DialConcurrent follows that order.
+		return DialConcurrent(ctx, dialer, network, destination, destinationAddresses, C.DomainStrategyAsIS, fallbackDelay)
 	}
 	if parallelDialer, isParallel := dialer.(ParallelNetworkDialer); isParallel {
 		return parallelDialer.DialParallelNetwork(ctx, network, destination, destinationAddresses, strategy, interfaceType, fallbackInterfaceType, fallbackDelay)
@@ -56,7 +57,11 @@ func DialParallelNetwork(ctx context.Context, dialer ParallelInterfaceDialer, ne
 	}
 
 	if concurrentDialEnabled(dialer) {
-		return DialConcurrent(ctx, dialer, network, destination, destinationAddresses)
+		concurrentStrategy := C.DomainStrategyPreferIPv4
+		if preferIPv6 {
+			concurrentStrategy = C.DomainStrategyPreferIPv6
+		}
+		return DialConcurrent(ctx, dialer, network, destination, destinationAddresses, concurrentStrategy, fallbackDelay)
 	}
 	if fallbackDelay == 0 {
 		fallbackDelay = N.DefaultFallbackDelay
@@ -142,9 +147,8 @@ func ListenSerialNetworkPacket(ctx context.Context, dialer N.Dialer, destination
 		}
 		destinationAddresses = []netip.Addr{destination.Addr}
 	}
-	if concurrentDialEnabled(dialer) {
-		return ListenConcurrent(ctx, dialer, destination, destinationAddresses)
-	}
+	// Session packet listeners stay serial even when concurrent dial is enabled,
+	// matching mihomo, where only DialContext races.
 	if parallelDialer, isParallel := dialer.(ParallelNetworkDialer); isParallel {
 		return parallelDialer.ListenSerialNetworkPacket(ctx, destination, destinationAddresses, strategy, interfaceType, fallbackInterfaceType, fallbackDelay)
 	}

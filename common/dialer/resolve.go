@@ -3,7 +3,6 @@ package dialer
 import (
 	"context"
 	"net"
-	"net/netip"
 	"sync"
 	"time"
 
@@ -106,7 +105,7 @@ func (d *resolveDialer) DialContext(ctx context.Context, network string, destina
 		return nil, err
 	}
 	if concurrentDialEnabled(d.dialer) {
-		return DialConcurrent(ctx, d.dialer, network, destination, addresses)
+		return DialConcurrent(ctx, d.dialer, network, destination, addresses, d.queryOptions.Strategy, d.fallbackDelay)
 	}
 	if d.parallel {
 		return N.DialParallel(ctx, d.dialer, network, destination, addresses, d.queryOptions.Strategy == C.DomainStrategyPreferIPv6, d.fallbackDelay)
@@ -128,15 +127,9 @@ func (d *resolveDialer) ListenPacket(ctx context.Context, destination M.Socksadd
 	if err != nil {
 		return nil, err
 	}
-	var (
-		conn               net.PacketConn
-		destinationAddress netip.Addr
-	)
-	if concurrentDialEnabled(d.dialer) {
-		conn, destinationAddress, err = ListenConcurrent(ctx, d.dialer, destination, addresses)
-	} else {
-		conn, destinationAddress, err = N.ListenSerial(ctx, d.dialer, destination, addresses)
-	}
+	// Session packet listeners stay serial even when concurrent dial is enabled,
+	// matching mihomo, where only DialContext races.
+	conn, destinationAddress, err := N.ListenSerial(ctx, d.dialer, destination, addresses)
 	if err != nil {
 		return nil, err
 	}
